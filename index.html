@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Voice Transcription Agent Panel</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      background-color: #f9f9f9;
+    }
+    input, textarea, button, select {
+      padding: 10px;
+      margin: 10px 0;
+      width: 100%;
+    }
+    audio {
+      width: 100%;
+      margin-top: 10px;
+    }
+    label {
+      font-weight: bold;
+    }
+    .section {
+      background: #fff;
+      border: 1px solid #ddd;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+<body>
+  <h2>🎧 ASR Transcription Panel</h2>
+
+  <div class="section">
+    <label for="agentName">👤 Agent Name:</label>
+    <input type="text" id="agentName" placeholder="Enter your name...">
+    <button onclick="fetchTask()">Get New Task</button>
+  </div>
+
+  <div class="section" id="taskSection" style="display:none;">
+    <p><strong>Filename:</strong> <span id="filename"></span></p>
+    <audio id="audioPlayer" controls></audio>
+
+    <label for="speed">Playback Speed:</label>
+    <select id="speed">
+      <option value="0.5">0.5x</option>
+      <option value="1" selected>1x (Normal)</option>
+      <option value="1.5">1.5x</option>
+      <option value="2">2x</option>
+    </select>
+
+    <label for="transcription">📝 Transcription:</label>
+    <textarea id="transcription" rows="8" placeholder="Type transcription here..."></textarea>
+    <label for="notes">🗒️ Notes (optional):</label>
+    <textarea id="notes" rows="3" placeholder="Extra comments or issues..."></textarea>
+
+    <button onclick="submitTranscription()">✅ Submit</button>
+  </div>
+
+  <script>
+    const API_BASE = "https://YOUR_N8N_DOMAIN/webhook"; // ← تغییر بده به دامنه n8n خودت
+
+    let currentFile = null;
+
+    document.getElementById("speed").addEventListener("change", function() {
+      document.getElementById("audioPlayer").playbackRate = parseFloat(this.value);
+    });
+
+    async function fetchTask() {
+      const agentName = document.getElementById("agentName").value.trim();
+      if (!agentName) return alert("Please enter your name first!");
+
+      const res = await fetch(`${API_BASE}/voice-transcription-interface`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ agent: agentName })
+      });
+
+      const data = await res.json();
+      if (!data || !data.file) {
+        alert("No pending tasks found.");
+        return;
+      }
+
+      currentFile = data.file;
+      document.getElementById("taskSection").style.display = "block";
+      document.getElementById("filename").innerText = currentFile.Filename;
+      document.getElementById("audioPlayer").src = currentFile.URL;
+    }
+
+    async function submitTranscription() {
+      const transcription = document.getElementById("transcription").value.trim();
+      const notes = document.getElementById("notes").value.trim();
+      const agentName = document.getElementById("agentName").value.trim();
+
+      if (!transcription || !currentFile) return alert("Please complete the transcription first.");
+
+      const res = await fetch(`${API_BASE}/agent-response`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fileId: currentFile["File ID"],
+          transcription,
+          notes,
+          agent: agentName
+        })
+      });
+
+      if (res.ok) {
+        alert("✅ Submitted successfully!");
+        location.reload();
+      } else {
+        alert("❌ Submission failed. Try again.");
+      }
+    }
+  </script>
+</body>
+</html>
