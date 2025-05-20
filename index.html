@@ -167,7 +167,7 @@
 
         // Set audio src using Google Drive file ID
         const driveFileId = task.url;
-        const audioUrl = `https://docs.google.com/uc?export=open&id=${driveFileId}`;
+        const audioUrl = `${driveFileId}`;
         const audio = document.getElementById("audioPlayer");
         audio.src = audioUrl;
         audio.load();
