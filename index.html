@@ -3,154 +3,192 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>ASR Labeling Platform</title>
+  <title>🎧 Tapsi ASR Transcription Panel</title>
   <style>
     body {
-      font-family: sans-serif;
-      margin: 2rem;
-      background: #f9f9f9;
+      font-family: 'Segoe UI', sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f2f4f8;
+      color: #333;
     }
+
+    header {
+      background-color: #2f80ed;
+      color: white;
+      padding: 1rem;
+      text-align: center;
+    }
+
+    main {
+      max-width: 600px;
+      margin: auto;
+      padding: 2rem;
+    }
+
+    .section {
+      background-color: white;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
     label {
+      font-weight: bold;
       display: block;
-      margin: 1rem 0 0.5rem;
+      margin-bottom: 0.5rem;
     }
-    input, textarea, button {
-      padding: 0.5rem;
+
+    input, textarea, select, button {
       width: 100%;
-      max-width: 500px;
+      padding: 10px;
+      margin-top: 0.2rem;
       margin-bottom: 1rem;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      font-size: 1rem;
+      box-sizing: border-box;
     }
+
     button {
-      background-color: #007bff;
+      background-color: #2f80ed;
       color: white;
       border: none;
       cursor: pointer;
+      transition: background-color 0.2s ease-in-out;
     }
-    button[disabled] {
-      background-color: #aaa;
+
+    button:hover {
+      background-color: #1366d6;
     }
+
     audio {
-      display: block;
+      width: 100%;
       margin: 1rem 0;
     }
+
     .hidden {
       display: none;
+    }
+
+    @media (max-width: 600px) {
+      main {
+        padding: 1rem;
+      }
     }
   </style>
 </head>
 <body>
-  <h1>ASR Transcription Interface</h1>
+  <header>
+    <h2>🎧 ASR Voice Transcription</h2>
+  </header>
 
-  <label for="agentName">👤 Agent Name:</label>
-  <input type="text" id="agentName" placeholder="Enter your name" />
+  <main>
+    <div class="section" id="agentSection">
+      <label for="agentName">👤 Agent Name:</label>
+      <input type="text" id="agentName" placeholder="Enter your name...">
+      <button onclick="fetchAndAssignTask()">🎯 Get Task</button>
+    </div>
 
-  <button id="getTaskBtn" onclick="fetchTask()">🎧 Get Task</button>
+    <div class="section hidden" id="taskSection">
+      <p><strong>Filename:</strong> <span id="filename"></span></p>
+      <audio id="audioPlayer" controls></audio>
 
-  <div id="taskSection" class="hidden">
-    <h2>📝 Transcription Task</h2>
-    <p><strong>Filename:</strong> <span id="filename"></span></p>
-    <audio id="audioPlayer" controls></audio>
+      <label for="speed">⏩ Playback Speed:</label>
+      <select id="speed">
+        <option value="0.75">0.75x</option>
+        <option value="1" selected>1x (Normal)</option>
+        <option value="1.25">1.25x</option>
+        <option value="1.5">1.5x</option>
+      </select>
 
-    <label for="transcription">✍️ Transcription:</label>
-    <textarea id="transcription" rows="6" placeholder="Type the transcription here..."></textarea>
+      <label for="transcription">📝 Transcription:</label>
+      <textarea id="transcription" rows="6" placeholder="Type transcription here..."></textarea>
 
-    <button onclick="submitTranscription()">✅ Submit Transcription</button>
-  </div>
+      <button onclick="submitTranscription()">✅ Submit</button>
+    </div>
+  </main>
 
   <script>
-    const GET_TASK_ENDPOINT = "https://myn8n-rtofljaal.liara.run/webhook/voice-transcription-interface";
-    const ASSIGN_ENDPOINT = "https://myn8n-rtofljaal.liara.run/webhook/assign-task";
-    const SUBMIT_ENDPOINT = "https://myn8n-rtofljaal.liara.run/webhook/send-transcription";
+    const WEBHOOK_GET = "https://myn8n-rtofljaal.liara.run/webhook/voice-transcription-interface";
+    const WEBHOOK_ASSIGN = "https://myn8n-rtofljaal.liara.run/webhook/assign-task";
+    const WEBHOOK_SUBMIT = "https://myn8n-rtofljaal.liara.run/webhook/send-transcription";
 
-    let currentFile = null;
+    let currentTask = null;
 
-    function extractDriveFileId(url) {
-      const match = url.match(/\/d\/(.*?)\//);
-      return match ? match[1] : null;
-    }
+    document.getElementById("speed").addEventListener("change", () => {
+      const speed = parseFloat(document.getElementById("speed").value);
+      document.getElementById("audioPlayer").playbackRate = speed;
+    });
 
-    async function fetchTask() {
+    async function fetchAndAssignTask() {
       const agent = document.getElementById("agentName").value.trim();
       if (!agent) {
-        alert("⛔ Please enter your name first.");
+        alert("Please enter your name.");
         return;
       }
 
-      const btn = document.getElementById("getTaskBtn");
-      btn.disabled = true;
-      btn.textContent = "⏳ Loading...";
-
       try {
-        const res = await fetch(GET_TASK_ENDPOINT);
+        const res = await fetch(WEBHOOK_GET);
         const data = await res.json();
-
-        if (!data || data.length === 0) {
-          alert("✅ No pending tasks. You're all caught up!");
-          btn.textContent = "🎧 Get Task";
-          btn.disabled = false;
+        if (!data || !Array.isArray(data) || data.length === 0) {
+          alert("✅ No pending tasks found.");
           return;
         }
 
-        const file = data[0];
-        currentFile = file;
+        const task = data[0]; // Take the first pending task
+        currentTask = task;
 
-        const fileId = extractDriveFileId(file.url);
-        const directUrl = fileId
-          ? `https://drive.google.com/uc?export=download&id=${fileId}`
-          : file.url;
-
-        document.getElementById("filename").textContent = file.Filename;
-        document.getElementById("audioPlayer").src = directUrl;
-        document.getElementById("transcription").value = "";
-        document.getElementById("taskSection").classList.remove("hidden");
-
-        // Assign task
-        await fetch(ASSIGN_ENDPOINT, {
+        // Assign the task to the agent
+        await fetch(WEBHOOK_ASSIGN, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            fileId: file["File ID"],
-            agent
+            filename: task.Filename,
+            agent: agent
           })
         });
 
-      } catch (err) {
-        console.error("Error fetching task:", err);
-        alert("❌ Failed to fetch task. Try again.");
-      } finally {
-        btn.textContent = "🎧 Get Task";
-        btn.disabled = false;
+        // Load task into UI
+        document.getElementById("filename").textContent = task.Filename;
+        document.getElementById("audioPlayer").src = task.url;
+        document.getElementById("taskSection").classList.remove("hidden");
+        document.getElementById("agentSection").classList.add("hidden");
+
+      } catch (error) {
+        console.error("Error fetching task:", error);
+        alert("⚠️ Error fetching task.");
       }
     }
 
     async function submitTranscription() {
-      const agent = document.getElementById("agentName").value.trim();
       const transcription = document.getElementById("transcription").value.trim();
-
-      if (!agent || !transcription || !currentFile) {
-        alert("⛔ Please complete all fields before submitting.");
+      const agent = document.getElementById("agentName").value.trim();
+      if (!transcription || !currentTask || !agent) {
+        alert("Please complete all fields before submitting.");
         return;
       }
 
-      const timestamp = new Date().toISOString();
+      try {
+        await fetch(WEBHOOK_SUBMIT, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            filename: currentTask.Filename,
+            transcription: transcription,
+            agent: agent
+          })
+        });
 
-      const res = await fetch(SUBMIT_ENDPOINT, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          fileId: currentFile["File ID"],
-          transcription,
-          agent,
-          timestamp
-        })
-      });
+        alert("✅ Transcription submitted.");
+        document.getElementById("transcription").value = "";
 
-      if (res.ok) {
-        alert("✅ Transcription submitted!");
-        document.getElementById("taskSection").classList.add("hidden");
-        fetchTask(); // Automatically fetch next
-      } else {
-        alert("❌ Submission failed. Try again.");
+        // Automatically fetch the next task
+        fetchAndAssignTask();
+      } catch (error) {
+        console.error("Submission failed:", error);
+        alert("❌ Submission failed.");
       }
     }
   </script>
