@@ -145,8 +145,8 @@
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            filename: task.Filename,
-            agent: agent
+            fileName: task.Filename,
+            assignedTo: agent
           })
         });
 
@@ -175,9 +175,9 @@
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            filename: currentTask.Filename,
+            fileName: currentTask.Filename,
             transcription: transcription,
-            agent: agent
+            timestamp: '2025'
           })
         });
 
