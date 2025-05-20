@@ -165,11 +165,11 @@
 
         document.getElementById("filename").textContent = task.Filename;
 
-        // Set audio src based on file ID
-        const fileId = task.url; // Assume this is just the ID
-        const driveUrl = `https://docs.google.com/uc?export=open&id=${fileId}`;
+        // Set audio src using Google Drive file ID
+        const driveFileId = task.url;
+        const audioUrl = `https://docs.google.com/uc?export=open&id=${driveFileId}`;
         const audio = document.getElementById("audioPlayer");
-        audio.src = driveUrl;
+        audio.src = audioUrl;
         audio.load();
 
         document.getElementById("taskSection").classList.remove("hidden");
