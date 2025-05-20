@@ -3,87 +3,124 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>ASR Transcription Panel</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <title>ASR Labeling Platform</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      margin: 2rem;
+      background: #f9f9f9;
+    }
+    label {
+      display: block;
+      margin: 1rem 0 0.5rem;
+    }
+    input, textarea, button {
+      padding: 0.5rem;
+      width: 100%;
+      max-width: 500px;
+      margin-bottom: 1rem;
+    }
+    button {
+      background-color: #007bff;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    button[disabled] {
+      background-color: #aaa;
+    }
+    audio {
+      display: block;
+      margin: 1rem 0;
+    }
+    .hidden {
+      display: none;
+    }
+  </style>
 </head>
-<body class="bg-gray-50 min-h-screen flex items-center justify-center p-6">
-  <div class="max-w-2xl w-full bg-white rounded-2xl shadow-lg p-6 space-y-6">
-    <h2 class="text-2xl font-bold text-gray-800 text-center">🎧 ASR Transcription Panel</h2>
+<body>
+  <h1>ASR Transcription Interface</h1>
 
-    <div>
-      <label class="block font-semibold text-gray-700 mb-1">👤 Agent Name</label>
-      <input type="text" id="agentName" placeholder="Enter your name"
-             class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"/>
-      <button onclick="fetchTask()"
-              class="mt-3 w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-lg">🎯 Get Task</button>
-    </div>
+  <label for="agentName">👤 Agent Name:</label>
+  <input type="text" id="agentName" placeholder="Enter your name" />
 
-    <div id="taskSection" style="display:none;">
-      <div class="mt-4">
-        <p class="text-gray-600 mb-2"><strong>🎵 Filename:</strong> <span id="filename"></span></p>
-        <audio id="audioPlayer" controls class="w-full rounded shadow"></audio>
-      </div>
+  <button id="getTaskBtn" onclick="fetchTask()">🎧 Get Task</button>
 
-      <div class="mt-4">
-        <label class="block font-semibold text-gray-700 mb-1">🎚️ Playback Speed</label>
-        <select id="speed" class="w-full px-4 py-2 border rounded-lg">
-          <option value="0.5">0.5x</option>
-          <option value="1" selected>1x (Normal)</option>
-          <option value="1.5">1.5x</option>
-          <option value="2">2x</option>
-        </select>
-      </div>
+  <div id="taskSection" class="hidden">
+    <h2>📝 Transcription Task</h2>
+    <p><strong>Filename:</strong> <span id="filename"></span></p>
+    <audio id="audioPlayer" controls></audio>
 
-      <div class="mt-4">
-        <label class="block font-semibold text-gray-700 mb-1">📝 Transcription</label>
-        <textarea id="transcription" rows="6"
-                  class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
-                  placeholder="Type the transcription here..."></textarea>
-      </div>
+    <label for="transcription">✍️ Transcription:</label>
+    <textarea id="transcription" rows="6" placeholder="Type the transcription here..."></textarea>
 
-      <button onclick="submitTranscription()"
-              class="mt-4 w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 rounded-lg">✅ Submit</button>
-    </div>
+    <button onclick="submitTranscription()">✅ Submit Transcription</button>
   </div>
 
   <script>
-    const FETCH_ENDPOINT = "https://myn8n-rtofljaal.liara.run/webhook/voice-transcription-interface";
+    const GET_TASK_ENDPOINT = "https://myn8n-rtofljaal.liara.run/webhook/voice-transcription-interface";
     const ASSIGN_ENDPOINT = "https://myn8n-rtofljaal.liara.run/webhook/assign-task";
     const SUBMIT_ENDPOINT = "https://myn8n-rtofljaal.liara.run/webhook/send-transcription";
 
     let currentFile = null;
 
-    document.getElementById("speed").addEventListener("change", function () {
-      document.getElementById("audioPlayer").playbackRate = parseFloat(this.value);
-    });
+    function extractDriveFileId(url) {
+      const match = url.match(/\/d\/(.*?)\//);
+      return match ? match[1] : null;
+    }
 
     async function fetchTask() {
       const agent = document.getElementById("agentName").value.trim();
-      if (!agent) return alert("❗ لطفاً نام خود را وارد کنید");
-
-      const res = await fetch(FETCH_ENDPOINT);
-      const data = await res.json();
-
-      if (!data || data.length === 0) {
-        alert("🎉 No pending tasks. You’re all caught up!");
+      if (!agent) {
+        alert("⛔ Please enter your name first.");
         return;
       }
 
-      currentFile = data[0];
+      const btn = document.getElementById("getTaskBtn");
+      btn.disabled = true;
+      btn.textContent = "⏳ Loading...";
 
-      // فایل رو به حالت in progress ببریم
-      await fetch(ASSIGN_ENDPOINT, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          fileId: currentFile["File ID"],
-          agent
-        })
-      });
+      try {
+        const res = await fetch(GET_TASK_ENDPOINT);
+        const data = await res.json();
 
-      document.getElementById("taskSection").style.display = "block";
-      document.getElementById("filename").textContent = currentFile.Filename;
-      document.getElementById("audioPlayer").src = currentFile.URL;
+        if (!data || data.length === 0) {
+          alert("✅ No pending tasks. You're all caught up!");
+          btn.textContent = "🎧 Get Task";
+          btn.disabled = false;
+          return;
+        }
+
+        const file = data[0];
+        currentFile = file;
+
+        const fileId = extractDriveFileId(file.url);
+        const directUrl = fileId
+          ? `https://drive.google.com/uc?export=download&id=${fileId}`
+          : file.url;
+
+        document.getElementById("filename").textContent = file.Filename;
+        document.getElementById("audioPlayer").src = directUrl;
+        document.getElementById("transcription").value = "";
+        document.getElementById("taskSection").classList.remove("hidden");
+
+        // Assign task
+        await fetch(ASSIGN_ENDPOINT, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            fileId: file["File ID"],
+            agent
+          })
+        });
+
+      } catch (err) {
+        console.error("Error fetching task:", err);
+        alert("❌ Failed to fetch task. Try again.");
+      } finally {
+        btn.textContent = "🎧 Get Task";
+        btn.disabled = false;
+      }
     }
 
     async function submitTranscription() {
@@ -110,9 +147,10 @@
 
       if (res.ok) {
         alert("✅ Transcription submitted!");
-        location.reload();
+        document.getElementById("taskSection").classList.add("hidden");
+        fetchTask(); // Automatically fetch next
       } else {
-        alert("❌ Submission failed. Try again later.");
+        alert("❌ Submission failed. Try again.");
       }
     }
   </script>
