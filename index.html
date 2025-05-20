@@ -47,31 +47,40 @@
   </div>
 
   <script>
-    const API_BASE = "https://YOUR_N8N_DOMAIN/webhook"; // ← تغییر بده به آدرس دامنه‌ی n8n خودت
+    const FETCH_ENDPOINT = "https://myn8n-rtofljaal.liara.run/webhook/voice-transcription-interface";
+    const ASSIGN_ENDPOINT = "https://myn8n-rtofljaal.liara.run/webhook/assign-task";
+    const SUBMIT_ENDPOINT = "https://myn8n-rtofljaal.liara.run/webhook/send-transcription";
+
     let currentFile = null;
 
     document.getElementById("speed").addEventListener("change", function () {
-      const player = document.getElementById("audioPlayer");
-      player.playbackRate = parseFloat(this.value);
+      document.getElementById("audioPlayer").playbackRate = parseFloat(this.value);
     });
 
     async function fetchTask() {
       const agent = document.getElementById("agentName").value.trim();
       if (!agent) return alert("❗ لطفاً نام خود را وارد کنید");
 
-      const res = await fetch(`${API_BASE}/fetch-task`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ agent })
-      });
-
+      const res = await fetch(FETCH_ENDPOINT);
       const data = await res.json();
-      if (!data || !data.file) {
+
+      if (!data || data.length === 0) {
         alert("🎉 No pending tasks. You’re all caught up!");
         return;
       }
 
-      currentFile = data.file;
+      currentFile = data[0];
+
+      // فایل رو به حالت in progress ببریم
+      await fetch(ASSIGN_ENDPOINT, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fileId: currentFile["File ID"],
+          agent
+        })
+      });
+
       document.getElementById("taskSection").style.display = "block";
       document.getElementById("filename").textContent = currentFile.Filename;
       document.getElementById("audioPlayer").src = currentFile.URL;
@@ -86,13 +95,16 @@
         return;
       }
 
-      const res = await fetch(`${API_BASE}/submit-task`, {
+      const timestamp = new Date().toISOString();
+
+      const res = await fetch(SUBMIT_ENDPOINT, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           fileId: currentFile["File ID"],
           transcription,
-          agent
+          agent,
+          timestamp
         })
       });
 
