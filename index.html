@@ -72,6 +72,12 @@
       display: none;
     }
 
+    #loading {
+      text-align: center;
+      font-weight: bold;
+      color: #2f80ed;
+    }
+
     @media (max-width: 600px) {
       main {
         padding: 1rem;
@@ -85,6 +91,8 @@
   </header>
 
   <main>
+    <div id="loading" class="hidden">⏳ Loading...</div>
+
     <div class="section" id="agentSection">
       <label for="agentName">👤 Agent Name:</label>
       <input type="text" id="agentName" placeholder="Enter your name...">
@@ -116,6 +124,7 @@
     const WEBHOOK_SUBMIT = "https://myn8n-rtofljaal.liara.run/webhook/send-transcription";
 
     let currentTask = null;
+    const loadingEl = document.getElementById("loading");
 
     document.getElementById("speed").addEventListener("change", () => {
       const speed = parseFloat(document.getElementById("speed").value);
@@ -130,17 +139,21 @@
       }
 
       try {
+        loadingEl.classList.remove("hidden");
+
         const res = await fetch(WEBHOOK_GET);
         const data = await res.json();
+
         if (!data || !Array.isArray(data) || data.length === 0) {
           alert("✅ No pending tasks found.");
+          loadingEl.classList.add("hidden");
           return;
         }
 
-        const task = data[0]; // Take the first pending task
+        const task = data[0];
         currentTask = task;
 
-        // Assign the task to the agent
+        // Assign task
         await fetch(WEBHOOK_ASSIGN, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -150,15 +163,22 @@
           })
         });
 
-        // Load task into UI
         document.getElementById("filename").textContent = task.Filename;
-        document.getElementById("audioPlayer").src = task.url;
+
+        // Set audio src based on file ID
+        const fileId = task.url; // Assume this is just the ID
+        const driveUrl = `https://docs.google.com/uc?export=open&id=${fileId}`;
+        const audio = document.getElementById("audioPlayer");
+        audio.src = driveUrl;
+        audio.load();
+
         document.getElementById("taskSection").classList.remove("hidden");
         document.getElementById("agentSection").classList.add("hidden");
-
       } catch (error) {
-        console.error("Error fetching task:", error);
-        alert("⚠️ Error fetching task.");
+        console.error("Error:", error);
+        alert("⚠️ Failed to fetch task.");
+      } finally {
+        loadingEl.classList.add("hidden");
       }
     }
 
@@ -166,29 +186,34 @@
       const transcription = document.getElementById("transcription").value.trim();
       const agent = document.getElementById("agentName").value.trim();
       if (!transcription || !currentTask || !agent) {
-        alert("Please complete all fields before submitting.");
+        alert("Please complete all fields.");
         return;
       }
 
       try {
+        loadingEl.classList.remove("hidden");
+
         await fetch(WEBHOOK_SUBMIT, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             fileName: currentTask.Filename,
             transcription: transcription,
-            timestamp: '2025'
+            timestamp: new Date().toISOString(),
+            status: "done"
           })
         });
 
-        alert("✅ Transcription submitted.");
+        alert("✅ Submitted successfully.");
         document.getElementById("transcription").value = "";
 
         // Automatically fetch the next task
-        fetchAndAssignTask();
-      } catch (error) {
-        console.error("Submission failed:", error);
-        alert("❌ Submission failed.");
+        await fetchAndAssignTask();
+      } catch (err) {
+        console.error("Submit error:", err);
+        alert("❌ Failed to submit.");
+      } finally {
+        loadingEl.classList.add("hidden");
       }
     }
   </script>
