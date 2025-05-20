@@ -2,118 +2,105 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Voice Transcription Agent Panel</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 20px;
-      background-color: #f9f9f9;
-    }
-    input, textarea, button, select {
-      padding: 10px;
-      margin: 10px 0;
-      width: 100%;
-    }
-    audio {
-      width: 100%;
-      margin-top: 10px;
-    }
-    label {
-      font-weight: bold;
-    }
-    .section {
-      background: #fff;
-      border: 1px solid #ddd;
-      padding: 20px;
-      border-radius: 8px;
-      margin-bottom: 20px;
-    }
-  </style>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ASR Transcription Panel</title>
+  <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body>
-  <h2>🎧 ASR Transcription Panel</h2>
+<body class="bg-gray-50 min-h-screen flex items-center justify-center p-6">
+  <div class="max-w-2xl w-full bg-white rounded-2xl shadow-lg p-6 space-y-6">
+    <h2 class="text-2xl font-bold text-gray-800 text-center">🎧 ASR Transcription Panel</h2>
 
-  <div class="section">
-    <label for="agentName">👤 Agent Name:</label>
-    <input type="text" id="agentName" placeholder="Enter your name...">
-    <button onclick="fetchTask()">Get New Task</button>
-  </div>
+    <div>
+      <label class="block font-semibold text-gray-700 mb-1">👤 Agent Name</label>
+      <input type="text" id="agentName" placeholder="Enter your name"
+             class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"/>
+      <button onclick="fetchTask()"
+              class="mt-3 w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-lg">🎯 Get Task</button>
+    </div>
 
-  <div class="section" id="taskSection" style="display:none;">
-    <p><strong>Filename:</strong> <span id="filename"></span></p>
-    <audio id="audioPlayer" controls></audio>
+    <div id="taskSection" style="display:none;">
+      <div class="mt-4">
+        <p class="text-gray-600 mb-2"><strong>🎵 Filename:</strong> <span id="filename"></span></p>
+        <audio id="audioPlayer" controls class="w-full rounded shadow"></audio>
+      </div>
 
-    <label for="speed">Playback Speed:</label>
-    <select id="speed">
-      <option value="0.5">0.5x</option>
-      <option value="1" selected>1x (Normal)</option>
-      <option value="1.5">1.5x</option>
-      <option value="2">2x</option>
-    </select>
+      <div class="mt-4">
+        <label class="block font-semibold text-gray-700 mb-1">🎚️ Playback Speed</label>
+        <select id="speed" class="w-full px-4 py-2 border rounded-lg">
+          <option value="0.5">0.5x</option>
+          <option value="1" selected>1x (Normal)</option>
+          <option value="1.5">1.5x</option>
+          <option value="2">2x</option>
+        </select>
+      </div>
 
-    <label for="transcription">📝 Transcription:</label>
-    <textarea id="transcription" rows="8" placeholder="Type transcription here..."></textarea>
-    <label for="notes">🗒️ Notes (optional):</label>
-    <textarea id="notes" rows="3" placeholder="Extra comments or issues..."></textarea>
+      <div class="mt-4">
+        <label class="block font-semibold text-gray-700 mb-1">📝 Transcription</label>
+        <textarea id="transcription" rows="6"
+                  class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  placeholder="Type the transcription here..."></textarea>
+      </div>
 
-    <button onclick="submitTranscription()">✅ Submit</button>
+      <button onclick="submitTranscription()"
+              class="mt-4 w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 rounded-lg">✅ Submit</button>
+    </div>
   </div>
 
   <script>
-    const API_BASE = "https://YOUR_N8N_DOMAIN/webhook"; // ← تغییر بده به دامنه n8n خودت
-
+    const API_BASE = "https://YOUR_N8N_DOMAIN/webhook"; // ← تغییر بده به آدرس دامنه‌ی n8n خودت
     let currentFile = null;
 
-    document.getElementById("speed").addEventListener("change", function() {
-      document.getElementById("audioPlayer").playbackRate = parseFloat(this.value);
+    document.getElementById("speed").addEventListener("change", function () {
+      const player = document.getElementById("audioPlayer");
+      player.playbackRate = parseFloat(this.value);
     });
 
     async function fetchTask() {
-      const agentName = document.getElementById("agentName").value.trim();
-      if (!agentName) return alert("Please enter your name first!");
+      const agent = document.getElementById("agentName").value.trim();
+      if (!agent) return alert("❗ لطفاً نام خود را وارد کنید");
 
-      const res = await fetch(`${API_BASE}/voice-transcription-interface`, {
+      const res = await fetch(`${API_BASE}/fetch-task`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ agent: agentName })
+        body: JSON.stringify({ agent })
       });
 
       const data = await res.json();
       if (!data || !data.file) {
-        alert("No pending tasks found.");
+        alert("🎉 No pending tasks. You’re all caught up!");
         return;
       }
 
       currentFile = data.file;
       document.getElementById("taskSection").style.display = "block";
-      document.getElementById("filename").innerText = currentFile.Filename;
+      document.getElementById("filename").textContent = currentFile.Filename;
       document.getElementById("audioPlayer").src = currentFile.URL;
     }
 
     async function submitTranscription() {
+      const agent = document.getElementById("agentName").value.trim();
       const transcription = document.getElementById("transcription").value.trim();
-      const notes = document.getElementById("notes").value.trim();
-      const agentName = document.getElementById("agentName").value.trim();
 
-      if (!transcription || !currentFile) return alert("Please complete the transcription first.");
+      if (!agent || !transcription || !currentFile) {
+        alert("⛔ Please complete all fields before submitting.");
+        return;
+      }
 
-      const res = await fetch(`${API_BASE}/agent-response`, {
+      const res = await fetch(`${API_BASE}/submit-task`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           fileId: currentFile["File ID"],
           transcription,
-          notes,
-          agent: agentName
+          agent
         })
       });
 
       if (res.ok) {
-        alert("✅ Submitted successfully!");
+        alert("✅ Transcription submitted!");
         location.reload();
       } else {
-        alert("❌ Submission failed. Try again.");
+        alert("❌ Submission failed. Try again later.");
       }
     }
   </script>
